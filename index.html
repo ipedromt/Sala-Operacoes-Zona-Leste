@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sala de Operações | Zona Leste</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+<style>
+:root{--bg:#0b1220;--panel:#121d30;--panel2:#18263c;--line:#2b3b54;--text:#eef4ff;--muted:#a9b8cc;--blue:#65b8ff;--green:#35c98b;--yellow:#f4c45e;--red:#ff7d7d}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}header{padding:20px 16px;background:linear-gradient(135deg,#142943,#101a2b);border-bottom:1px solid var(--line)}.wrap{max-width:1200px;margin:auto;padding:16px}h1{font-size:clamp(22px,4vw,32px);margin:0 0 6px}h2{font-size:18px;margin:0 0 12px}.sub{color:var(--muted)}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}.card,.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;min-width:0}.kpi{font-size:26px;font-weight:750;margin-top:6px}.label{color:var(--muted);font-size:13px}.layout{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(280px,1fr);gap:16px}.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}input,select,button{font:inherit;border-radius:9px;border:1px solid var(--line);padding:10px;background:#0d1727;color:var(--text);min-width:0}input,select{flex:1}button{cursor:pointer;background:#1e5c8c;border-color:#327eb3;font-weight:650}button.secondary{background:#1a2b42;border-color:var(--line)}button:disabled{opacity:.5}#map{height:440px;width:100%;border-radius:10px;overflow:hidden;background:#dce6ee}.map-note{font-size:12px;color:var(--muted);margin-top:8px}.district-list{display:grid;gap:8px;max-height:370px;overflow:auto}.district{display:flex;justify-content:space-between;gap:12px;align-items:center;text-align:left;background:var(--panel2);border:1px solid var(--line);padding:10px;border-radius:10px;width:100%}.district strong{display:block}.pill{font-size:12px;padding:3px 8px;border-radius:999px;background:#263850;white-space:nowrap}.phase-F1{border-left:4px solid var(--red)}.phase-F2{border-left:4px solid var(--yellow)}.phase-F3{border-left:4px solid var(--green)}.phase-Sem{border-left:4px solid #8192a8}.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.formgrid label{font-size:12px;color:var(--muted);display:grid;gap:4px}.formgrid .wide{grid-column:1/-1}.status{font-size:13px;margin-top:8px;color:var(--muted)}.error{color:#ff9999}.success{color:#78e6b7}.legend{display:flex;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin:10px 0}.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px}.login{max-width:420px;margin:24px auto}.hidden{display:none!important}.footer{color:var(--muted);font-size:12px;text-align:center;padding:20px}
+@media(max-width:760px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.layout{grid-template-columns:1fr}#map{height:350px}.wrap{padding:12px}.district-list{max-height:280px}}
+</style>
+</head>
+<body>
+<header><div class="wrap"><h1>🧭 Sala de Operações | Zona Leste</h1><div class="sub">Painel de acompanhamento territorial • Fases F1, F2 e F3</div></div></header>
+<main class="wrap">
+<section id="loginPanel" class="panel login">
+<h2>Acesso à sala</h2><p class="sub">Entre com sua conta autorizada para carregar e editar os dados do Supabase.</p>
+<form id="loginForm"><div class="filters"><input id="email" type="email" placeholder="E-mail" autocomplete="username" required><input id="password" type="password" placeholder="Senha" autocomplete="current-password" required></div><button type="submit">Entrar</button></form>
+<div id="loginStatus" class="status" aria-live="polite"></div>
+
+</section>
+<section id="appPanel" class="hidden">
+<div class="grid">
+<div class="card"><div class="label">Distritos no painel</div><div id="kDistricts" class="kpi">33</div></div>
+<div class="card"><div class="label">Casas abertas</div><div id="kOpen" class="kpi">0</div></div>
+<div class="card"><div class="label">Casas fechadas</div><div id="kClosed" class="kpi">0</div></div>
+<div class="card"><div class="label">Pendências</div><div id="kPending" class="kpi">0</div></div>
+</div>
+<div class="panel" style="margin-bottom:16px">
+<div class="filters"><input id="search" placeholder="Buscar distrito..." aria-label="Buscar distrito"><select id="phaseFilter" aria-label="Filtrar fase"><option value="">Todas as fases</option><option>F1</option><option>F2</option><option>F3</option><option value="Sem fase">Sem fase</option></select><select id="subFilter" aria-label="Filtrar subprefeitura"><option value="">Todas as subprefeituras</option></select><button id="csvBtn" type="button" class="secondary">Exportar CSV</button><button id="logoutBtn" type="button" class="secondary">Sair</button></div>
+</div>
+<div class="layout">
+<section class="panel"><h2>Mapa interativo</h2><div id="map" role="application" aria-label="Mapa de referência da Zona Leste de São Paulo"></div><div class="legend"><span><i class="dot" style="background:#ff7d7d"></i>F1 • Frio</span><span><i class="dot" style="background:#f4c45e"></i>F2 • Pré-emancipação</span><span><i class="dot" style="background:#35c98b"></i>F3 • Emancipado</span><span><i class="dot" style="background:#8192a8"></i>Sem fase</span></div><div class="map-note">Os pontos são referências aproximadas, não limites oficiais dos distritos. O mapa base requer internet.</div></section>
+<section class="panel"><h2>Distritos</h2><div id="districtList" class="district-list"></div><p id="listStatus" class="status" aria-live="polite"></p></section>
+</div>
+<section class="panel" style="margin-top:16px"><h2>Editar distrito selecionado</h2><p id="selectedName" class="sub">Selecione um distrito no mapa ou na lista.</p>
+<form id="editForm"><div class="formgrid">
+<label>Fase<select id="editPhase"><option value="">Sem fase</option><option>F1</option><option>F2</option><option>F3</option></select></label>
+<label>Casas abertas<input id="editOpen" type="number" min="0" step="1" value="0"></label>
+<label>Casas fechadas<input id="editClosed" type="number" min="0" step="1" value="0"></label>
+<label>Pendências<input id="editPending" type="number" min="0" step="1" value="0"></label>
+<label class="wide">Observações<textarea id="editNotes" rows="2" style="font:inherit;background:#0d1727;color:var(--text);border:1px solid var(--line);border-radius:9px;padding:10px"></textarea></label>
+</div><div class="filters" style="margin-top:12px"><button id="saveBtn" type="submit">Salvar no Supabase</button></div></form><div id="editStatus" class="status" aria-live="polite">Faça login para editar dados.</div></section>
+</section>
+<div class="footer">Sala de Operações • Os dados só são persistidos após login autorizado e conexão com o Supabase.</div>
+</main>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(function(){
+'use strict';
+const SUPABASE_URL='https://uclrmkyjisneehmuvlzf.supabase.co';
+const SUPABASE_KEY='sb_publishable_xkO0qkDdbmyt9ID_1uwSYA_GaQadYnQ';
+const $=id=>document.getElementById(id);
+const districtsSeed=[
+['Aricanduva','Aricanduva-Formosa-Carrão',[-23.567,-46.514]],['Carrão','Aricanduva-Formosa-Carrão',[-23.552,-46.537]],['Vila Formosa','Aricanduva-Formosa-Carrão',[-23.566,-46.545]],
+['Cidade Tiradentes','Cidade Tiradentes',[-23.584,-46.409]],['Ermelino Matarazzo','Ermelino Matarazzo',[-23.497,-46.485]],['Ponte Rasa','Ermelino Matarazzo',[-23.509,-46.486]],
+['Guaianases','Guaianases',[-23.542,-46.410]],['Lajeado','Guaianases',[-23.548,-46.395]],['Itaim Paulista','Itaim Paulista',[-23.501,-46.397]],['Vila Curuçá','Itaim Paulista',[-23.514,-46.414]],
+['Cidade Líder','Itaquera',[-23.565,-46.473]],['Itaquera','Itaquera',[-23.541,-46.456]],['José Bonifácio','Itaquera',[-23.551,-46.425]],['Parque do Carmo','Itaquera',[-23.579,-46.481]],
+['Água Rasa','Mooca',[-23.565,-46.590]],['Belém','Mooca',[-23.542,-46.590]],['Brás','Mooca',[-23.548,-46.616]],['Mooca','Mooca',[-23.560,-46.602]],['Pari','Mooca',[-23.525,-46.616]],['Tatuapé','Mooca',[-23.540,-46.576]],
+['Artur Alvim','Penha',[-23.540,-46.484]],['Cangaíba','Penha',[-23.505,-46.520]],['Penha','Penha',[-23.525,-46.542]],['Vila Matilde','Penha',[-23.537,-46.524]],
+['Iguatemi','São Mateus',[-23.615,-46.445]],['São Mateus','São Mateus',[-23.605,-46.480]],['São Rafael','São Mateus',[-23.625,-46.455]],
+['Jardim Helena','São Miguel Paulista',[-23.485,-46.426]],['São Miguel','São Miguel Paulista',[-23.496,-46.444]],['Vila Jacuí','São Miguel Paulista',[-23.500,-46.459]],
+['Sapopemba','Sapopemba',[-23.604,-46.507]],['São Lucas','Vila Prudente',[-23.590,-46.550]],['Vila Prudente','Vila Prudente',[-23.584,-46.581]]
+].map((d,i)=>({id:null,name:d[0],subprefecture:d[1],lat:d[2][0],lng:d[2][1],phase:'',open_houses:0,closed_houses:0,pending:0,notes:'',updated_at:null,_key:i}));
+let data=districtsSeed.slice(), selected=null, client=null, loggedIn=false, map=null, markers=[];
+function phaseColor(p){return p==='F1'?'#ff7d7d':p==='F2'?'#f4c45e':p==='F3'?'#35c98b':'#8192a8'}
+function status(id,msg,kind=''){ $(id).textContent=msg; $(id).className='status '+kind}
+function initMap(){
+ if(!window.L){$('map').innerHTML='<p style="padding:16px;color:#223">Não foi possível carregar a biblioteca do mapa. Verifique a internet e recarregue.</p>';return}
+ map=L.map('map',{zoomControl:true}).setView([-23.55,-46.48],11);
+ L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
+ renderMarkers(); setTimeout(()=>map.invalidateSize(),250);
+}
+function filtered(){const q=$('search').value.trim().toLocaleLowerCase('pt-BR'),p=$('phaseFilter').value,s=$('subFilter').value;return data.filter(d=>(!q||d.name.toLocaleLowerCase('pt-BR').includes(q))&&(!p||(p==='Sem fase'?!d.phase:d.phase===p))&&(!s||d.subprefecture===s))}
+function renderMarkers(){
+ if(!map)return;markers.forEach(m=>map.removeLayer(m));markers=[];
+ filtered().forEach(d=>{const m=L.circleMarker([d.lat,d.lng],{radius:8,color:'#ffffff',weight:2,fillColor:phaseColor(d.phase),fillOpacity:.95}).addTo(map);m.bindPopup('<strong>'+escapeHtml(d.name)+'</strong><br>Fase: '+escapeHtml(d.phase||'Sem fase')+'<br>Abertas: '+num(d.open_houses)+' • Fechadas: '+num(d.closed_houses)+'<br><button type="button" onclick="window.goToDistrict('+d._key+')">Ver distrito</button>');m.on('click',()=>{m.openPopup()});markers.push(m)});
+}
+function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function num(v){return Number(v)||0}
+function phaseFromDb(v){if(v===null||v===undefined||v==='')return '';const n=Number(v);return n===1?'F1':n===2?'F2':n===3?'F3':''}
+function phaseToDb(v){return v==='F1'?1:v==='F2'?2:v==='F3'?3:null}
+function renderList(){const rows=filtered();$('districtList').innerHTML='';rows.forEach(d=>{const b=document.createElement('button');b.type='button';b.className='district phase-'+(d.phase||'Sem');b.innerHTML='<span><strong>'+escapeHtml(d.name)+'</strong><small class="sub">'+escapeHtml(d.subprefecture)+'</small></span><span class="pill">'+escapeHtml(d.phase||'Sem fase')+'</span>';b.addEventListener('click',()=>selectDistrict(d._key));$('districtList').appendChild(b)});$('listStatus').textContent=rows.length+' distrito(s) exibido(s).';renderMarkers()}
+function renderKPIs(){$('kDistricts').textContent=data.length;$('kOpen').textContent=data.reduce((a,d)=>a+num(d.open_houses),0);$('kClosed').textContent=data.reduce((a,d)=>a+num(d.closed_houses),0);$('kPending').textContent=data.reduce((a,d)=>a+num(d.pending),0)}
+window.selectDistrict=function(key){const d=data.find(x=>x._key===key);if(!d)return;selected=d;$('selectedName').textContent=d.name+' • '+d.subprefecture;$('editPhase').value=d.phase||'';$('editOpen').value=num(d.open_houses);$('editClosed').value=num(d.closed_houses);$('editPending').value=num(d.pending);$('editNotes').value=d.notes||'';status('editStatus',loggedIn?'Pronto para editar.':'Modo de consulta: faça login para salvar.');if(map){map.setView([d.lat,d.lng],12);const m=markers.find(x=>x.getLatLng().lat===d.lat&&x.getLatLng().lng===d.lng);if(m)m.openPopup()}};
+window.goToDistrict=function(key){window.selectDistrict(key);$('editForm').scrollIntoView({behavior:'smooth',block:'start'});setTimeout(()=>$('editPhase').focus({preventScroll:true}),350)};
+function fillSubfilters(){const subs=[...new Set(data.map(d=>d.subprefecture))].sort((a,b)=>a.localeCompare(b,'pt-BR'));$('subFilter').innerHTML='<option value="">Todas as subprefeituras</option>'+subs.map(s=>'<option>'+escapeHtml(s)+'</option>').join('')}
+function showApp(){ $('loginPanel').classList.add('hidden');$('appPanel').classList.remove('hidden');renderKPIs();fillSubfilters();renderList();if(map)setTimeout(()=>map.invalidateSize(),200)}
+async function loadSupabase(){
+ if(!client){status('loginStatus','Não foi possível conectar ao Supabase. Verifique a internet.','error');return}
+ const {data:authData,error:sessionError}=await client.auth.getSession();
+ if(sessionError||!authData.session){loggedIn=false;$('appPanel').classList.add('hidden');$('loginPanel').classList.remove('hidden');return}
+ const {data:allowed,error:authErr}=await client.from('authorized_users').select('*').eq('user_id',authData.session.user.id).maybeSingle();
+ if(authErr||!allowed){loggedIn=false;status('loginStatus','Sua conta não está autorizada ou o sistema não conseguiu confirmar a autorização.','error');await client.auth.signOut();$('appPanel').classList.add('hidden');$('loginPanel').classList.remove('hidden');return}
+ const {data:rows,error}=await client.from('districts').select('*');
+ if(error){loggedIn=false;status('loginStatus','Login feito, mas houve erro ao carregar os dados: '+error.message,'error');await client.auth.signOut();$('appPanel').classList.add('hidden');$('loginPanel').classList.remove('hidden');return}
+ if(!rows||!rows.length){loggedIn=false;status('loginStatus','Sua conta foi reconhecida, mas a tabela districts está vazia. Nenhum painel local será mostrado.','error');await client.auth.signOut();$('appPanel').classList.add('hidden');$('loginPanel').classList.remove('hidden');return}
+ loggedIn=true;
+ const byName=new Map(rows.map(r=>[r.name,r]));
+ data=rows.map((r,i)=>{const seed=districtsSeed.find(d=>d.name===r.name);return {...(seed||{}),...r,phase:phaseFromDb(r.phase),pending:num(r.pending),lat:seed?seed.lat:-23.55,lng:seed?seed.lng:-46.48,_key:seed?seed._key:i}});
+ showApp();status('editStatus','Conta autorizada. Mapa, lista e edição estão conectados ao Supabase.','success');
+}
+$('loginForm').addEventListener('submit',async e=>{e.preventDefault();if(!client){status('loginStatus','Não foi possível iniciar o Supabase.','error');return}status('loginStatus','Entrando...');const {error}=await client.auth.signInWithPassword({email:$('email').value,password:$('password').value});if(error){status('loginStatus','Falha no login: '+error.message,'error');return}await loadSupabase()});
+// Acesso sem login removido: mapa e dados só aparecem após autenticação e autorização.
+$('logoutBtn').addEventListener('click',async()=>{if(client)await client.auth.signOut();loggedIn=false;selected=null;$('appPanel').classList.add('hidden');$('loginPanel').classList.remove('hidden');status('loginStatus','Você saiu da sala.')});
+['search','phaseFilter','subFilter'].forEach(id=>$(id).addEventListener('input',renderList));
+$('editForm').addEventListener('submit',async e=>{e.preventDefault();if(!selected){status('editStatus','Selecione um distrito primeiro.','error');return}if(!loggedIn||!client){status('editStatus','Faça login para salvar alterações.','error');return}
+ const phaseText=$('editPhase').value||'';const changes={phase:phaseToDb(phaseText),open_houses:num($('editOpen').value),closed_houses:num($('editClosed').value),pending:num($('editPending').value),notes:$('editNotes').value,updated_at:new Date().toISOString()};
+ if(!selected.id){status('editStatus','Este distrito não possui id carregado do banco. Verifique se a tabela districts contém este distrito.','error');return}
+ const {error}=await client.from('districts').update(changes).eq('id',selected.id);if(error){status('editStatus','Não foi possível salvar: '+error.message,'error');return}Object.assign(selected,{...changes,phase:phaseText});renderKPIs();renderList();status('editStatus','Alterações salvas.','success')});
+$('csvBtn').addEventListener('click',()=>{const rows=filtered(),cols=['name','subprefecture','phase','open_houses','closed_houses','pending','notes'];const csv=[cols.join(';'),...rows.map(d=>cols.map(c=>'"'+String(d[c]??'').replace(/"/g,'""')+'"').join(';'))].join('\r\n');const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='sala-operacoes-zona-leste.csv';a.click();URL.revokeObjectURL(url)});
+
+try{if(window.supabase&&window.supabase.createClient)client=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);else status('loginStatus','Biblioteca do Supabase não carregou. Verifique a internet.','error')}catch(e){status('loginStatus','Erro ao iniciar Supabase: '+e.message,'error')}
+initMap();
+if(client){client.auth.getSession().then(({data,error})=>{if(!error&&data.session)loadSupabase()})}
+})();
+</script>
+</body>
+</html>
